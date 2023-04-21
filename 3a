@@ -1,0 +1,15 @@
+mod normal_mode;
+
+use crossterm::event::KeyEvent;
+
+#[derive(Debug, Default)]
+pub enum ModeType {
+    #[default]
+    Normal,
+    Insert,
+}
+
+trait Mode {
+    fn display(&self) -> &'static str;
+    fn keypress(&mut self, event: KeyEvent);
+}
