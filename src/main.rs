@@ -2,6 +2,7 @@ mod editor;
 mod document;
 mod state;
 mod mode;
+mod status_bar;
 
 use clap::Parser;
 use editor::Editor;
