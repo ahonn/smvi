@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use crate::{
-    cursor::{Cursor, CursorShape, Position},
+    cursor::{Cursor, CursorShape},
     document::Document,
     mode::{insert_mode::InsertMode, normal_mode::NormalMode, Mode, ModeType},
 };
@@ -16,21 +16,15 @@ pub enum Action<'a> {
     HideCursor,
     SetCursorPositon(&'a Position),
     SetMode(ModeType),
-    Message(String),
+    // Message(String),
     Quit,
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Position {
     pub row: usize,
     pub col: usize,
-}
-
-impl Default for Position {
-    fn default() -> Self {
-        Self { row: 0, col: 0 }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -90,10 +84,10 @@ impl State {
         &self.message
     }
 
-    pub fn set_message(&mut self, text: String) {
-        self.message.text = text;
-        self.message.time = Instant::now();
-    }
+    // pub fn set_message(&mut self, text: String) {
+    //     self.message.text = text;
+    //     self.message.time = Instant::now();
+    // }
 
     pub fn get_cursor_position(&self) -> &Position {
         &self.cursor.position
@@ -113,9 +107,9 @@ impl State {
             }
             Action::ShowCursor => self.cursor.show().unwrap(),
             Action::HideCursor => self.cursor.hide().unwrap(),
-            Action::SetCursorPositon(position) => self.cursor.set_position(&position).unwrap(),
+            Action::SetCursorPositon(position) => self.cursor.set_position(position).unwrap(),
             Action::SetMode(mode_type) => self.set_mode(mode_type).unwrap(),
-            Action::Message(text) => self.set_message(text),
+            // Action::Message(text) => self.set_message(text),
             Action::Quit => self.quit = true,
             Action::None => {}
         }
@@ -143,7 +137,7 @@ impl State {
             Action::MoveLeft => {
                 if col > 0 {
                     col = col.saturating_sub(1);
-                } else if col > 0 {
+                } else if row > 0 {
                     row = row.saturating_sub(1);
                     if let Some(row) = self.document.row(row) {
                         col = row.len();

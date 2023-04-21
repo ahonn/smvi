@@ -3,7 +3,6 @@ mod document;
 mod state;
 mod mode;
 mod cursor;
-mod position;
 
 use clap::Parser;
 use editor::Editor;

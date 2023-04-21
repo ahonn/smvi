@@ -1,7 +1,6 @@
 use crate::{
-    cursor::Position,
     document::Document,
-    state::{Action, State},
+    state::{Action, State, Position},
 };
 use crossterm::{
     event::{poll, read, Event},
