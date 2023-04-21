@@ -21,4 +21,8 @@ impl Document {
             None
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.text.len_lines()
+    }
 }

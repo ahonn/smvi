@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use crate::{
     cursor::{Cursor, CursorShape, Position},
+    document::Document,
     mode::{insert_mode::InsertMode, normal_mode::NormalMode, Mode, ModeType},
 };
 
@@ -18,6 +19,18 @@ pub enum Action<'a> {
     Message(String),
     Quit,
     None,
+}
+
+#[derive(Debug)]
+pub struct Position {
+    pub row: usize,
+    pub col: usize,
+}
+
+impl Default for Position {
+    fn default() -> Self {
+        Self { row: 0, col: 0 }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +51,7 @@ impl Default for Message {
 #[derive(Debug, Default)]
 pub struct State {
     quit: bool,
+    document: Document,
     mode_type: ModeType,
     cursor: Cursor,
     message: Message,
@@ -46,6 +60,14 @@ pub struct State {
 impl State {
     pub fn should_quite(&self) -> bool {
         self.quit
+    }
+
+    pub fn get_document(&self) -> &Document {
+        &self.document
+    }
+
+    pub fn set_document(&mut self, document: Document) {
+        self.document = document;
     }
 
     pub fn get_mode(&self) -> Box<dyn Mode> {
@@ -86,10 +108,9 @@ impl State {
 
     pub fn dispatch(&mut self, action: Action) {
         match action {
-            Action::MoveDown => self.cursor.move_down().unwrap(),
-            Action::MoveUp => self.cursor.move_up().unwrap(),
-            Action::MoveLeft => self.cursor.move_left().unwrap(),
-            Action::MoveRight => self.cursor.move_right().unwrap(),
+            Action::MoveUp | Action::MoveDown | Action::MoveLeft | Action::MoveRight => {
+                self.move_cursor(action)
+            }
             Action::ShowCursor => self.cursor.show().unwrap(),
             Action::HideCursor => self.cursor.hide().unwrap(),
             Action::SetCursorPositon(position) => self.cursor.set_position(&position).unwrap(),
@@ -98,5 +119,49 @@ impl State {
             Action::Quit => self.quit = true,
             Action::None => {}
         }
+    }
+
+    fn move_cursor(&mut self, action: Action) {
+        let Position { mut row, mut col } = self.cursor.position;
+        let height = self.document.len();
+        let width = if let Some(row) = self.document.row(row) {
+            row.len() - 1
+        } else {
+            0
+        };
+        match action {
+            Action::MoveUp => {
+                if row > 0 {
+                    row = row.saturating_sub(1);
+                }
+            }
+            Action::MoveDown => {
+                if row.saturating_add(1) <= height {
+                    row = row.saturating_add(1);
+                }
+            }
+            Action::MoveLeft => {
+                if col > 0 {
+                    col = col.saturating_sub(1);
+                } else if col > 0 {
+                    row = row.saturating_sub(1);
+                    if let Some(row) = self.document.row(row) {
+                        col = row.len();
+                    } else {
+                        col = 0;
+                    }
+                }
+            }
+            Action::MoveRight => {
+                if col < width {
+                    col = col.saturating_add(1);
+                } else if row < height {
+                    row = row.saturating_add(1);
+                    col = 0;
+                }
+            }
+            _ => {}
+        }
+        self.cursor.position = Position { row, col };
     }
 }

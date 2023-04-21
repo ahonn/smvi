@@ -29,25 +29,20 @@ const STATUS_BG_COLOR: Color = Color::Rgb {
 pub struct Editor {
     filename: Option<String>,
     state: State,
-    document: Document,
 }
 
 impl Editor {
     pub fn open(filename: Option<String>) -> Self {
-        let document = if let Some(filename) = &filename {
-            if let Ok(doc) = Document::from_file(filename.clone()) {
-                doc
-            } else {
-                Document::default()
+        let mut state = State::default();
+        if let Some(filename) = &filename {
+            if let Ok(document) = Document::from_file(filename.clone()) {
+                state.set_document(document);
             }
-        } else {
-            Document::default()
-        };
+        }
 
         Self {
             filename,
-            document,
-            state: State::default(),
+            state,
         }
     }
 
@@ -93,9 +88,10 @@ impl Editor {
     }
 
     fn draw_rows(&self) {
+        let document = self.state.get_document();
         let (_, rows) = terminal::size().unwrap();
         for index in 0..(rows - 2) {
-            if let Some(row) = self.document.row(index as usize) {
+            if let Some(row) = document.row(index as usize) {
                 self.draw_row(row);
             } else {
                 println!("~\r");
