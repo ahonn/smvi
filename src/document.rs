@@ -15,6 +15,10 @@ impl Document {
     }
 
     pub fn row(&self, row: usize) -> Option<&str> {
-        self.text.line(row).as_str()
+        if row < self.text.len_lines() {
+            self.text.line(row).as_str()
+        } else {
+            None
+        }
     }
 }

@@ -1,15 +1,35 @@
-use crate::{document::Document, state::State, status_bar::StatusBar};
-use crossterm::{
-    event::{read, Event},
-    execute, terminal,
+use crate::{
+    cursor::Position,
+    document::Document,
+    state::{Action, State},
 };
-use std::io::{stdout, Write};
+use crossterm::{
+    event::{poll, read, Event},
+    execute,
+    style::{Color, Colors, Print, ResetColor, SetColors},
+    terminal,
+};
+use std::{
+    io::{stdout, Write},
+    time::{Duration, Instant},
+};
+
+const STATUS_FG_COLOR: Color = Color::Rgb {
+    r: 63,
+    g: 63,
+    b: 63,
+};
+const STATUS_BG_COLOR: Color = Color::Rgb {
+    r: 239,
+    g: 239,
+    b: 239,
+};
 
 #[derive(Debug)]
 pub struct Editor {
+    filename: Option<String>,
     state: State,
     document: Document,
-    status_bar: StatusBar,
 }
 
 impl Editor {
@@ -23,18 +43,11 @@ impl Editor {
         } else {
             Document::default()
         };
-        let filename = if let Some(filename) = &filename {
-            filename.clone()
-        } else {
-            String::from("[No Name]")
-        };
 
-        let state = State::default();
-        let status_bar = StatusBar::new(filename, &state.get_mode().display());
         Self {
+            filename,
             document,
-            state,
-            status_bar,
+            state: State::default(),
         }
     }
 
@@ -56,31 +69,32 @@ impl Editor {
 
     fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
         let mut stdout = stdout();
-        if self.state.should_quite() {
-            execute!(stdout, terminal::Clear(terminal::ClearType::Purge))?;
-        } else {
-            execute!(stdout, terminal::Clear(terminal::ClearType::All))?;
+        self.state.dispatch(Action::HideCursor);
+        self.state
+            .dispatch(Action::SetCursorPositon(&Position::default()));
+        execute!(stdout, terminal::Clear(terminal::ClearType::All))?;
+        if !self.state.should_quite() {
             self.draw_rows();
-            self.status_bar.update(&self.state);
-            self.status_bar.draw()?;
+            self.draw_status_bar()?;
+            self.draw_message_bar()?;
         }
+        self.state.dispatch(Action::ShowCursor);
         stdout.flush()
     }
 
-    fn read_keypress(&mut self) -> Result<Event, std::io::Error> {
-        let event = read()?;
-        match event {
-            Event::Key(event) => {
-                self.state.keypress(event);
+    fn read_keypress(&mut self) -> Result<(), std::io::Error> {
+        if poll(Duration::from_millis(10))? {
+            let event = read()?;
+            if let Event::Key(event) = event {
+                self.state.keypress(event)?;
             }
-            _ => {}
         }
-        Ok(event)
+        Ok(())
     }
 
     fn draw_rows(&self) {
         let (_, rows) = terminal::size().unwrap();
-        for index in 0..(rows - 1) {
+        for index in 0..(rows - 2) {
             if let Some(row) = self.document.row(index as usize) {
                 self.draw_row(row);
             } else {
@@ -90,6 +104,45 @@ impl Editor {
     }
 
     fn draw_row(&self, row: &str) {
-        println!("{}\r", row.strip_suffix('\n').unwrap());
+        println!("{}\r", row.replace('\n', ""));
+    }
+
+    fn draw_status_bar(&self) -> Result<(), std::io::Error> {
+        let filename = if let Some(name) = &self.filename {
+            name.to_string()
+        } else {
+            "[No Name]".to_string()
+        };
+        let status = format!("[{}] {}", self.state.get_mode().display(), filename);
+
+        let Position { row, col } = self.state.get_cursor_position();
+        let line_indicator = format!("{}:{}", row, col);
+
+        let (cols, _) = terminal::size()?;
+        let len = (status.len() + line_indicator.len()) as u16;
+        let spaces = if len < cols {
+            " ".repeat((cols - len) as usize)
+        } else {
+            "".to_string()
+        };
+
+        let status = format!("{}{}{}", status, spaces, line_indicator);
+
+        execute!(
+            stdout(),
+            SetColors(Colors::new(STATUS_FG_COLOR, STATUS_BG_COLOR)),
+            Print(status),
+            ResetColor,
+        )
+    }
+
+    fn draw_message_bar(&self) -> Result<(), std::io::Error> {
+        let message = &self.state.get_message();
+        if Instant::now() - message.time < Duration::new(5, 0) {
+            let mut text = message.text.clone();
+            text.truncate(terminal::size().unwrap().0 as usize);
+            execute!(stdout(), Print(text))?;
+        }
+        Ok(())
     }
 }

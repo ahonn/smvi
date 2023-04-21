@@ -14,7 +14,11 @@ impl Mode for InsertMode {
 
     fn keypress(&mut self, event: crossterm::event::KeyEvent) -> Action {
         match event.code {
-            KeyCode::Esc => Action::SwitchMode(super::ModeType::Normal),
+            KeyCode::Esc => Action::SetMode(super::ModeType::Normal),
+            KeyCode::Left => Action::MoveLeft,
+            KeyCode::Down => Action::MoveDown,
+            KeyCode::Up => Action::MoveUp,
+            KeyCode::Right => Action::MoveRight,
             _ => Action::None,
         }
     }
