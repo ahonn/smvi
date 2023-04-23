@@ -1,6 +1,6 @@
-use std::io::stdout;
-use crossterm::{cursor, execute};
 use crate::state::Position;
+use crossterm::{cursor, execute};
+use std::io::stdout;
 
 #[derive(Debug, Default)]
 pub enum CursorShape {
@@ -17,12 +17,7 @@ pub struct Cursor {
 
 impl Cursor {
     pub fn show(&mut self) -> Result<(), std::io::Error> {
-        let Position { row, col } = self.position;
-        execute!(
-            stdout(),
-            cursor::Show,
-            cursor::MoveTo(col as u16, row as u16)
-        )
+        execute!(stdout(), cursor::Show,)
     }
 
     pub fn hide(&mut self) -> Result<(), std::io::Error> {

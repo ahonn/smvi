@@ -1,6 +1,6 @@
 use crate::{
     document::Document,
-    state::{Action, State, Position},
+    state::{Action, Position, State},
 };
 use crossterm::{
     event::{poll, read, Event},
@@ -39,10 +39,7 @@ impl Editor {
             }
         }
 
-        Self {
-            filename,
-            state,
-        }
+        Self { filename, state }
     }
 
     pub fn run(&mut self) {
@@ -63,6 +60,7 @@ impl Editor {
 
     fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
         let mut stdout = stdout();
+
         self.state.dispatch(Action::HideCursor);
         self.state
             .dispatch(Action::SetCursorPositon(&Position::default()));
@@ -71,6 +69,13 @@ impl Editor {
             self.draw_rows();
             self.draw_status_bar()?;
             self.draw_message_bar()?;
+
+            let Position { row, col } = self.state.get_cursor_position();
+            let offset = self.state.get_offset();
+            self.state.dispatch(Action::SetCursorPositon(&Position {
+                row: row - offset.row,
+                col: col - offset.col,
+            }));
         }
         self.state.dispatch(Action::ShowCursor);
         stdout.flush()
@@ -90,7 +95,7 @@ impl Editor {
         let document = self.state.get_document();
         let (_, rows) = terminal::size().unwrap();
         for index in 0..(rows - 2) {
-            if let Some(row) = document.row(index as usize) {
+            if let Some(row) = document.row(index as usize + self.state.get_offset().row) {
                 self.draw_row(row);
             } else {
                 println!("~\r");

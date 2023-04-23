@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use crossterm::terminal;
+
 use crate::{
     cursor::{Cursor, CursorShape},
     document::Document,
@@ -48,6 +50,7 @@ pub struct State {
     document: Document,
     mode_type: ModeType,
     cursor: Cursor,
+    offset: Position,
     message: Message,
 }
 
@@ -84,19 +87,24 @@ impl State {
         &self.message
     }
 
-    // pub fn set_message(&mut self, text: String) {
-    //     self.message.text = text;
-    //     self.message.time = Instant::now();
-    // }
+    pub fn set_message(&mut self, text: String) {
+        self.message.text = text;
+        self.message.time = Instant::now();
+    }
 
     pub fn get_cursor_position(&self) -> &Position {
         &self.cursor.position
+    }
+
+    pub fn get_offset(&self) -> &Position {
+        &self.offset
     }
 
     pub fn keypress(&mut self, event: crossterm::event::KeyEvent) -> Result<(), std::io::Error> {
         let mut mode = self.get_mode();
         let action = mode.keypress(event);
         self.dispatch(action);
+        self.scroll();
         Ok(())
     }
 
@@ -118,11 +126,13 @@ impl State {
     fn move_cursor(&mut self, action: Action) {
         let Position { mut row, mut col } = self.cursor.position;
         let height = self.document.len();
+
         let width = if let Some(row) = self.document.row(row) {
-            row.len() - 1
+            row.len()
         } else {
             0
         };
+
         match action {
             Action::MoveUp => {
                 if row > 0 {
@@ -157,5 +167,23 @@ impl State {
             _ => {}
         }
         self.cursor.position = Position { row, col };
+    }
+
+    fn scroll(&mut self) {
+        let Position { row, col } = self.cursor.position;
+        let (width, height) = terminal::size().unwrap();
+        let height = height.saturating_sub(2);
+
+        if col < self.offset.col {
+            self.offset.col = col;
+        } else if col >= self.offset.col.saturating_add(width as usize) {
+            self.offset.col = col.saturating_sub(width as usize).saturating_add(1);
+        }
+
+        if row < self.offset.row {
+            self.offset.row = row;
+        } else if row >= self.offset.row.saturating_add(height as usize) {
+            self.offset.row = row.saturating_sub(height as usize).saturating_add(1);
+        }
     }
 }
